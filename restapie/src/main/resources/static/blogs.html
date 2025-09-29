@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Blogs - Blog Management System</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 10px; text-decoration: none; color: #007bff; }
+        .blog-card { border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin-bottom: 15px; background-color: #fafafa; }
+        .blog-card h3 { margin-top: 0; cursor: pointer; }
+        .blog-actions { margin-top: 10px; }
+        .blog-actions button { background-color: #007bff; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+        .blog-actions button:hover { background-color: #0056b3; }
+        .add-blog { margin-bottom: 20px; }
+        .add-blog button { background-color: #28a745; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        .add-blog button:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="nav">
+        <a href="/">Home</a>
+        <a href="/blogs">Blogs</a>
+        <a href="/logout" onclick="logout()">Logout</a>
+    </div>
+
+    <h1>Blogs</h1>
+
+    <div class="add-blog" id="add-blog-btn" style="display:none;">
+        <a href="/blogs/new"><button>Add New Blog</button></a>
+    </div>
+
+    <div id="blog-list">
+        <p>Loading blogs...</p>
+    </div>
+</div>
+
+<script>
+    // Lấy token và role từ localStorage
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role') || 'USER';
+
+    if (!token) {
+        document.getElementById("blog-list").innerHTML = "<p>Please login to view blogs.</p>";
+    } else {
+        if(role === 'ADMIN') document.getElementById('add-blog-btn').style.display = 'block';
+
+        fetch('http://localhost:8080/api/blogs', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            }
+        })
+        .then(response => {
+            if(response.status === 403) throw new Error("Access denied. Invalid token or expired.");
+            if(!response.ok) throw new Error("Error fetching blogs");
+            return response.json();
+        })
+        .then(blogs => {
+            const blogList = document.getElementById("blog-list");
+            blogList.innerHTML = "";
+            if(blogs.length === 0) blogList.innerHTML = "<p>No blogs available.</p>";
+
+            blogs.forEach(blog => {
+                const card = document.createElement("div");
+                card.className = "blog-card";
+
+                let actionsHTML = '';
+                if(role === 'ADMIN') {
+                    actionsHTML = `
+                        <div class="blog-actions">
+                            <a href="/blogs/edit/${blog.id}"><button>Edit</button></a>
+                            <form action="/blogs/delete/${blog.id}" method="post" style="display:inline;">
+                                <button type="submit">Delete</button>
+                            </form>
+                        </div>`;
+                }
+
+                card.innerHTML = `
+                    <h3>${blog.title}</h3>
+                    <p>${blog.content}</p>
+                    <p>Author: ${blog.author}</p>
+                    ${actionsHTML}
+                `;
+                blogList.appendChild(card);
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById("blog-list").innerHTML = `<p>${err.message}</p>`;
+        });
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('role');
+        window.location.href = '/login';
+    }
+</script>
+</body>
+</html>
