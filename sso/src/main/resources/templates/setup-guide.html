@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keycloak Setup Guide</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            margin: 1rem 0;
+        }
+        .step {
+            border-left: 4px solid #0d6efd;
+            padding-left: 1rem;
+            margin: 1.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h2><i class="fas fa-cog"></i> Hướng dẫn Setup Keycloak</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <strong>Lưu ý:</strong> Hiện tại ứng dụng chạy ở chế độ demo không có OAuth2. 
+                            Để sử dụng đầy đủ tính năng SSO, vui lòng làm theo các bước dưới đây.
+                        </div>
+
+                        <!-- Step 1 -->
+                        <div class="step">
+                            <h4>🐳 Bước 1: Khởi động Keycloak với Docker</h4>
+                            <p>Mở Command Prompt/PowerShell và chạy lệnh sau:</p>
+                            <div class="code-block">
+docker run -d --name keycloak-sso -p 8081:8080 \<br>
+&nbsp;&nbsp;-e KEYCLOAK_ADMIN=admin \<br>
+&nbsp;&nbsp;-e KEYCLOAK_ADMIN_PASSWORD=admin \<br>
+&nbsp;&nbsp;quay.io/keycloak/keycloak:latest start-dev
+                            </div>
+                            <p><strong>Hoặc nếu không có Docker:</strong> Tải Keycloak từ <a href="https://www.keycloak.org/downloads" target="_blank">keycloak.org</a></p>
+                        </div>
+
+                        <!-- Step 2 -->
+                        <div class="step">
+                            <h4>⚙️ Bước 2: Truy cập Keycloak Admin Console</h4>
+                            <p>Sau khi Keycloak khởi động (khoảng 1-2 phút):</p>
+                            <ul>
+                                <li>Mở browser và vào: <a href="http://localhost:8081/admin" target="_blank">http://localhost:8081/admin</a></li>
+                                <li>Username: <code>admin</code></li>
+                                <li>Password: <code>admin</code></li>
+                            </ul>
+                        </div>
+
+                        <!-- Step 3 -->
+                        <div class="step">
+                            <h4>🏢 Bước 3: Tạo Realm</h4>
+                            <ol>
+                                <li>Click dropdown <strong>"Master"</strong> góc trái trên</li>
+                                <li>Click <strong>"Create Realm"</strong></li>
+                                <li>Realm name: <code>spring-boot-sso</code></li>
+                                <li>Click <strong>"Create"</strong></li>
+                            </ol>
+                        </div>
+
+                        <!-- Step 4 -->
+                        <div class="step">
+                            <h4>📱 Bước 4: Tạo OAuth2 Client</h4>
+                            <ol>
+                                <li>Vào <strong>"Clients"</strong> → <strong>"Create client"</strong></li>
+                                <li>Client ID: <code>spring-boot-client</code></li>
+                                <li>Client authentication: <strong>ON</strong></li>
+                                <li>Valid redirect URIs: <code>http://localhost:8080/login/oauth2/code/keycloak</code></li>
+                                <li>Web origins: <code>http://localhost:8080</code></li>
+                                <li>Click <strong>"Save"</strong></li>
+                                <li><strong>Quan trọng:</strong> Copy <strong>Client Secret</strong> từ tab "Credentials"</li>
+                            </ol>
+                        </div>
+
+                        <!-- Step 5 -->
+                        <div class="step">
+                            <h4>👤 Bước 5: Tạo User Test</h4>
+                            <ol>
+                                <li>Vào <strong>"Users"</strong> → <strong>"Create new user"</strong></li>
+                                <li>Username: <code>testuser</code></li>
+                                <li>Email: <code>test@example.com</code></li>
+                                <li>First name: <code>Test</code>, Last name: <code>User</code></li>
+                                <li>Click <strong>"Create"</strong></li>
+                                <li>Vào tab <strong>"Credentials"</strong> → Set password: <code>password123</code></li>
+                                <li>Tắt <strong>"Temporary"</strong> → Click <strong>"Set password"</strong></li>
+                            </ol>
+                        </div>
+
+                        <!-- Step 6 -->
+                        <div class="step">
+                            <h4>🔧 Bước 6: Cấu hình Application</h4>
+                            <p>Mở file <code>application.properties</code> và uncomment các dòng sau, thay thế giá trị:</p>
+                            <div class="code-block">
+spring.security.oauth2.client.registration.keycloak.client-id=spring-boot-client<br>
+spring.security.oauth2.client.registration.keycloak.client-secret=<strong>[YOUR_CLIENT_SECRET]</strong><br>
+spring.security.oauth2.client.registration.keycloak.authorization-grant-type=authorization_code<br>
+spring.security.oauth2.client.registration.keycloak.redirect-uri=http://localhost:8080/login/oauth2/code/keycloak<br>
+spring.security.oauth2.client.registration.keycloak.scope=openid,profile,email<br><br>
+
+spring.security.oauth2.client.provider.keycloak.issuer-uri=http://localhost:8081/realms/spring-boot-sso<br>
+spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8081/realms/spring-boot-sso
+                            </div>
+                        </div>
+
+                        <!-- Step 7 -->
+                        <div class="step">
+                            <h4>🚀 Bước 7: Restart Application</h4>
+                            <ol>
+                                <li>Stop Spring Boot application (Ctrl+C)</li>
+                                <li>Chạy lại: <code>./mvnw spring-boot:run</code></li>
+                                <li>Truy cập: <a href="http://localhost:8080">http://localhost:8080</a></li>
+                                <li>Click <strong>"Đăng nhập với Keycloak"</strong></li>
+                            </ol>
+                        </div>
+
+                        <div class="alert alert-success mt-4">
+                            <h5>✅ Hoàn thành!</h5>
+                            <p>Sau khi hoàn thành các bước trên, bạn sẽ có một ứng dụng Spring Boot hoạt động đầy đủ với:</p>
+                            <ul class="mb-0">
+                                <li>OIDC Authentication với Keycloak</li>
+                                <li>ID Token và Access Token</li>
+                                <li>Refresh Token support</li>
+                                <li>User profile management</li>
+                                <li>Secure logout</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5>Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="http://localhost:8081/admin" target="_blank" class="btn btn-primary w-100">
+                                    <i class="fas fa-external-link-alt"></i> Keycloak Admin
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/" class="btn btn-secondary w-100">
+                                    <i class="fas fa-home"></i> Back to Home
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-info w-100" onclick="checkKeycloakStatus()">
+                                    <i class="fas fa-heartbeat"></i> Check Keycloak
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function checkKeycloakStatus() {
+            fetch('http://localhost:8081/realms/spring-boot-sso/.well-known/openid-configuration', {
+                method: 'GET',
+                mode: 'no-cors'
+            })
+            .then(() => {
+                alert('✅ Keycloak đang chạy! Hãy làm theo các bước setup.');
+            })
+            .catch(() => {
+                alert('❌ Keycloak chưa chạy hoặc realm chưa được tạo. Vui lòng làm theo bước 1-3.');
+            });
+        }
+    </script>
+</body>
+</html>

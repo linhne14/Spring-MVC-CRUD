@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - SSO Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .token-display {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">SSO Demo</a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3" th:if="${user}">
+                    Xin chào, <strong th:text="${user.preferredUsername}"></strong>
+                </span>
+                <a class="nav-link" href="/logout">Đăng xuất</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <!-- User Profile Card -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-user"></i> Thông tin người dùng</h5>
+                    </div>
+                    <div class="card-body" th:if="${user}">
+                        <table class="table table-striped">
+                            <tr>
+                                <td><strong>Subject (ID):</strong></td>
+                                <td th:text="${user.subject}"></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Username:</strong></td>
+                                <td th:text="${user.preferredUsername}"></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Tên đầy đủ:</strong></td>
+                                <td th:text="${user.fullName}"></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Email:</strong></td>
+                                <td th:text="${user.email}"></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Email verified:</strong></td>
+                                <td>
+                                    <span th:if="${user.emailVerified}" class="badge bg-success">Verified</span>
+                                    <span th:unless="${user.emailVerified}" class="badge bg-warning">Not Verified</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Token Information Card -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-key"></i> Token Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <button class="btn btn-primary btn-sm" onclick="loadTokenInfo()">
+                                <i class="fas fa-refresh"></i> Load Token Info
+                            </button>
+                            <button class="btn btn-warning btn-sm" onclick="refreshToken()">
+                                <i class="fas fa-sync"></i> Refresh Token
+                            </button>
+                        </div>
+                        <div id="tokenInfo" class="token-display">
+                            Click "Load Token Info" để xem thông tin token
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ID Token Display -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-certificate"></i> ID Token (OIDC)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="token-display" th:if="${idToken}">
+                            <div th:text="${idToken}"></div>
+                        </div>
+                        <div th:unless="${idToken}" class="text-muted">
+                            No ID token available
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Test Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cog"></i> API Test</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <button class="btn btn-info w-100" onclick="getUserInfo()">
+                                    <i class="fas fa-info-circle"></i> Get User Info
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-success w-100" onclick="getProfile()">
+                                    <i class="fas fa-user-circle"></i> Get Profile
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-danger w-100" onclick="apiLogout()">
+                                    <i class="fas fa-sign-out-alt"></i> API Logout
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h6>Response:</h6>
+                            <div id="apiResponse" class="token-display">
+                                Click một button để test API
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js"></script>
+    <script>
+        function loadTokenInfo() {
+            fetch('/token')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('tokenInfo').innerHTML = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('tokenInfo').innerHTML = 'Error: ' + error;
+                });
+        }
+
+        function refreshToken() {
+            fetch('/api/refresh-token', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('tokenInfo').innerHTML = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('tokenInfo').innerHTML = 'Error: ' + error;
+                });
+        }
+
+        function getUserInfo() {
+            fetch('/userinfo')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('apiResponse').innerHTML = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('apiResponse').innerHTML = 'Error: ' + error;
+                });
+        }
+
+        function getProfile() {
+            fetch('/api/profile')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('apiResponse').innerHTML = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('apiResponse').innerHTML = 'Error: ' + error;
+                });
+        }
+
+        function apiLogout() {
+            fetch('/api/logout', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('apiResponse').innerHTML = JSON.stringify(data, null, 2);
+                    if (data.message) {
+                        setTimeout(() => window.location.href = '/', 2000);
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('apiResponse').innerHTML = 'Error: ' + error;
+                });
+        }
+    </script>
+</body>
+</html>

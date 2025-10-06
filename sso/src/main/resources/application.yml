@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: sso
+  
+  # Security OAuth2 Configuration
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: spring-boot-client
+            client-secret: your-client-secret  # Change this
+            authorization-grant-type: authorization_code
+            redirect-uri: http://localhost:8080/login/oauth2/code/keycloak
+            scope:
+              - openid
+              - profile
+              - email
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:8080/realms/spring-boot-sso  # Change realm name
+            authorization-uri: http://localhost:8080/realms/spring-boot-sso/protocol/openid-connect/auth
+            token-uri: http://localhost:8080/realms/spring-boot-sso/protocol/openid-connect/token
+            user-info-uri: http://localhost:8080/realms/spring-boot-sso/protocol/openid-connect/userinfo
+            jwk-set-uri: http://localhost:8080/realms/spring-boot-sso/protocol/openid-connect/certs
+            user-name-attribute: preferred_username
+      
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/spring-boot-sso  # Change realm name
+          jwk-set-uri: http://localhost:8080/realms/spring-boot-sso/protocol/openid-connect/certs
+
+# Server Configuration
+server:
+  port: 8080
+
+# Logging Configuration
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.web: INFO
+    com.example.sso: DEBUG
+
+# Application specific properties
+app:
+  oauth2:
+    authorized-redirect-uris: http://localhost:3000/oauth2/redirect
+    cookie-expire-seconds: 180
