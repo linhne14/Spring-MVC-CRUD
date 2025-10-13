@@ -1,0 +1,63 @@
+@echo off
+echo Setting up Keycloak for SSO Application...
+
+REM Wait for Keycloak to be ready
+echo Waiting for Keycloak to start...
+:wait_loop
+curl -f http://localhost:8081/realms/master >nul 2>&1
+if %errorlevel% neq 0 (
+    echo|set /p="."
+    timeout /t 2 /nobreak >nul
+    goto wait_loop
+)
+echo.
+echo ✓ Keycloak is ready!
+
+echo.
+echo ==========================================
+echo 🔑 KEYCLOAK SETUP INSTRUCTIONS
+echo ==========================================
+echo.
+echo 1. Access Keycloak Admin Console:
+echo    URL: http://localhost:8081
+echo    Username: admin
+echo    Password: admin123
+echo.
+echo 2. Create Realm 'spring-boot-sso':
+echo    - Click 'Create Realm'
+echo    - Realm name: spring-boot-sso
+echo    - Click 'Create'
+echo.
+echo 3. Create Client 'spring-boot-client':
+echo    - Go to Clients → Create client
+echo    - Client ID: spring-boot-client
+echo    - Client type: OpenID Connect
+echo    - Click 'Next'
+echo.
+echo 4. Configure Client Settings:
+echo    - Client authentication: ON
+echo    - Authorization: ON (optional)
+echo    - Standard flow: ON
+echo    - Click 'Next'
+echo.
+echo 5. Set Valid Redirect URIs:
+echo    - Valid redirect URIs: http://localhost:8080/login/oauth2/code/keycloak
+echo    - Web origins: http://localhost:8080
+echo    - Click 'Save'
+echo.
+echo 6. Get Client Secret:
+echo    - Go to Credentials tab
+echo    - Copy the Client Secret
+echo    - Update application-docker.properties if different from:
+echo      MlHAjtXA44HTvf2mZK82aoNHtY3Db8tE
+echo.
+echo 7. Create Test Users (optional):
+echo    - Go to Users → Add user
+echo    - Set username, email, etc.
+echo    - Go to Credentials tab → Set password
+echo.
+echo ==========================================
+echo Your SSO Application will be available at:
+echo http://localhost:8080
+echo ==========================================
+pause

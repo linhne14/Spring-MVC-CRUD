@@ -2,6 +2,7 @@ package com.example.sso.controller;
 
 import com.example.sso.service.TokenService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@ConditionalOnProperty(name = "spring.profiles.active", havingValue = "oauth2")
 public class ApiController {
 
     @Autowired

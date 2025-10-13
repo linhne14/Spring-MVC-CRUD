@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: sso-keycloak
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin123
+      - KC_DB=dev-file
+    command:
+      - start-dev
+    ports:
+      - "8081:8080"
+    networks:
+      - sso-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/realms/master"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+
+  sso-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sso-application:latest
+    container_name: sso-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=70.0
+      - KEYCLOAK_URL=http://keycloak:8080
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - sso-network
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  # Optional: Add a database service if needed
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: sso-postgres
+  #   environment:
+  #     POSTGRES_DB: sso_db
+  #     POSTGRES_USER: sso_user
+  #     POSTGRES_PASSWORD: sso_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - sso-network
+
+networks:
+  sso-network:
+    driver: bridge
+
+volumes:
+  keycloak_data:
+  # postgres_data:
+  logs:
