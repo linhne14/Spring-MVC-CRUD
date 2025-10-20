@@ -1,0 +1,218 @@
+# Kubernetes Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sso-app
+  labels:
+    name: sso-app
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sso-config
+  namespace: sso-app
+data:
+  SPRING_PROFILES_ACTIVE: "no-oauth2"
+  KEYCLOAK_URL: "http://keycloak-service:8080"
+  JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=50.0"
+---
+# Secret for sensitive data
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sso-secret
+  namespace: sso-app
+type: Opaque
+stringData:
+  keycloak-client-secret: "MlHAjtXA44HTvf2mZK82aoNHtY3Db8tE"
+  keycloak-admin-password: "admin123"
+---
+# Keycloak Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: sso-app
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:23.0
+        args:
+          - start-dev
+        env:
+        - name: KEYCLOAK_ADMIN
+          value: "admin"
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sso-secret
+              key: keycloak-admin-password
+        - name: KC_DB
+          value: "dev-file"
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: https
+          containerPort: 8443
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        readinessProbe:
+          httpGet:
+            path: /realms/master
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /realms/master
+            port: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 30
+---
+# Keycloak Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-service
+  namespace: sso-app
+  labels:
+    app: keycloak
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  - name: https
+    port: 8443
+    targetPort: 8443
+  selector:
+    app: keycloak
+---
+# SSO Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sso-app
+  namespace: sso-app
+  labels:
+    app: sso-app
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sso-app
+  template:
+    metadata:
+      labels:
+        app: sso-app
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+      - name: sso-app
+        image: sso-application:latest
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - configMapRef:
+            name: sso-config
+        env:
+        - name: SERVER_PORT
+          value: "8080"
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 20
+          timeoutSeconds: 5
+---
+# SSO Application Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: sso-service
+  namespace: sso-app
+  labels:
+    app: sso-app
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: sso-app
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sso-ingress
+  namespace: sso-app
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: sso.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sso-service
+            port:
+              number: 80
+  - host: keycloak.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: keycloak-service
+            port:
+              number: 8080

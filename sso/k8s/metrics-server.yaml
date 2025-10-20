@@ -1,0 +1,29 @@
+# Metrics Server is required for HPA to work
+# This file helps install metrics-server for local clusters like minikube
+
+# Note: For production clusters, use:
+# kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# For local development (minikube, kind), you may need to add --kubelet-insecure-tls flag
+# Instructions:
+# 1. Download metrics-server: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+# 2. For local clusters, patch the deployment:
+#    kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
+
+---
+# ServiceMonitor for Prometheus Operator (optional)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sso-app-monitor
+  namespace: sso-app
+  labels:
+    app: sso-app
+spec:
+  selector:
+    matchLabels:
+      app: sso-app
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /actuator/prometheus
