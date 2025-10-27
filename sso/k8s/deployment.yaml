@@ -13,7 +13,7 @@ metadata:
   name: sso-config
   namespace: sso-app
 data:
-  SPRING_PROFILES_ACTIVE: "no-oauth2"
+  SPRING_PROFILES_ACTIVE: "docker"
   KEYCLOAK_URL: "http://keycloak-service:8080"
   JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=50.0"
 ---
