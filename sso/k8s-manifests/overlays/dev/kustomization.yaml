@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../base
+
+namePrefix: dev-
+
+patchesStrategicMerge:
+- deployment-patch.yaml
+
+commonLabels:
+  environment: development
+
+images:
+- name: ghcr.io/linhne14/spring-mvc-crud
+  newTag: dev
