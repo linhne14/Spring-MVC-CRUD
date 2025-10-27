@@ -38,6 +38,7 @@ jobs:
     - name: Build with Maven
       run: |
         cd sso
+        chmod +x ./mvnw
         ./mvnw clean package -DskipTests
 
     - name: Set up Docker Buildx
