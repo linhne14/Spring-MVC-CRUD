@@ -14,4 +14,4 @@ commonLabels:
 
 images:
 - name: ghcr.io/linhne14/spring-mvc-crud
-  newTag: dev
+  newTag: latest
