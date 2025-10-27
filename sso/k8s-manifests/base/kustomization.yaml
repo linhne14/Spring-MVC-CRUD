@@ -4,7 +4,7 @@ kind: Kustomization
 resources:
 - deployment.yaml
 - service.yaml
-- ingress.yaml
+# - ingress.yaml  # Disabled temporarily until NGINX Ingress Controller is ready
 
 commonLabels:
   version: v1.0.0
