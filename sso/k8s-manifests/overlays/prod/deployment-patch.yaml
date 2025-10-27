@@ -10,7 +10,7 @@ spec:
       - name: sso-app
         env:
         - name: SPRING_PROFILES_ACTIVE
-          value: "prod"
+          value: "no-oauth2"
         resources:
           requests:
             memory: "512Mi"
