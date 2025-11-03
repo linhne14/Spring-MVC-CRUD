@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap  
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+data:
+  kubernetes-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Kubernetes Overview",
+        "description": "Overview of Kubernetes cluster metrics",
+        "tags": ["kubernetes"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Pod CPU Usage",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\"}[5m])) by (pod, namespace)",
+                "legendFormat": "{{namespace}}/{{pod}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Pod Memory Usage", 
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(container_memory_working_set_bytes{container!=\"POD\",container!=\"\"}) by (pod, namespace)",
+                "legendFormat": "{{namespace}}/{{pod}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "CPU Stress App Metrics",
+            "type": "stat", 
+            "targets": [
+              {
+                "expr": "cpu_usage_percent",
+                "legendFormat": "CPU Usage %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }

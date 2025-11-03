@@ -1,0 +1,250 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-test-server
+  namespace: monitoring
+data:
+  test_server.py: |
+    #!/usr/bin/env python3
+    import json
+    import smtplib
+    import requests
+    from datetime import datetime
+    from email.mime.text import MimeText
+    from email.mime.multipart import MimeMultipart
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    class NotificationTestHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/':
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
+                html = '''
+                <html><body>
+                <h1>🧪 Notification Test Server</h1>
+                <h2>Test All Notification Types</h2>
+                <p><a href="/test-email" style="color: blue;">📧 Test Email</a></p>
+                <p><a href="/test-slack" style="color: green;">💬 Test Slack</a></p>  
+                <p><a href="/test-webhook" style="color: orange;">🌐 Test HTTP Webhook</a></p>
+                <p><a href="/test-all" style="color: red;">🚀 Test All Notifications</a></p>
+                <hr>
+                <p><strong>Monitoring URLs:</strong></p>
+                <p>• <a href="http://localhost:30001">AlertManager</a></p>
+                <p>• <a href="http://localhost:30002">Grafana</a></p>
+                <p>• <a href="http://localhost:30000">Prometheus</a></p>
+                </body></html>
+                '''
+                self.wfile.write(html.encode())
+                
+            elif self.path == '/test-email':
+                result = self.test_email_notification()
+                self.send_json_response(result)
+                
+            elif self.path == '/test-slack':
+                result = self.test_slack_notification()
+                self.send_json_response(result)
+                
+            elif self.path == '/test-webhook':
+                result = self.test_webhook_notification()
+                self.send_json_response(result)
+                
+            elif self.path == '/test-all':
+                results = {
+                    'email': self.test_email_notification(),
+                    'slack': self.test_slack_notification(),
+                    'webhook': self.test_webhook_notification()
+                }
+                self.send_json_response(results)
+
+        def send_json_response(self, data):
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(data, indent=2).encode())
+
+        def test_email_notification(self):
+            logger.info("📧 Testing Email notification...")
+            try:
+                # Simulate email sending
+                email_config = {
+                    "smtp_server": "smtp.gmail.com",
+                    "smtp_port": 587,
+                    "from_email": "k8s-monitoring@gmail.com",
+                    "to_email": "admin@company.com",
+                    "subject": "🧪 Test Alert from Kubernetes",
+                    "body": f"Test alert sent at {datetime.now()}"
+                }
+                
+                logger.info(f"Would send email: {email_config['subject']}")
+                
+                return {
+                    "status": "success",
+                    "type": "email",
+                    "message": "Email notification simulated successfully",
+                    "config": email_config,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                logger.error(f"Email test failed: {e}")
+                return {"status": "error", "type": "email", "error": str(e)}
+
+        def test_slack_notification(self):
+            logger.info("💬 Testing Slack notification...")
+            try:
+                # Simulate Slack webhook
+                slack_payload = {
+                    "channel": "#kubernetes-alerts",
+                    "username": "K8s-TestBot",
+                    "icon_emoji": ":test_tube:",
+                    "text": f"🧪 Test alert from Kubernetes at {datetime.now()}",
+                    "attachments": [
+                        {
+                            "color": "warning",
+                            "fields": [
+                                {"title": "Alert", "value": "Test Alert", "short": True},
+                                {"title": "Status", "value": "Testing", "short": True},
+                                {"title": "Namespace", "value": "monitoring", "short": True}
+                            ]
+                        }
+                    ]
+                }
+                
+                logger.info(f"Would send Slack message to {slack_payload['channel']}")
+                
+                # Test with httpbin.org (publicly accessible webhook tester)
+                response = requests.post(
+                    'https://httpbin.org/post', 
+                    json=slack_payload,
+                    timeout=10
+                )
+                
+                return {
+                    "status": "success",
+                    "type": "slack", 
+                    "message": "Slack notification sent to test endpoint",
+                    "payload": slack_payload,
+                    "test_response": response.status_code,
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+            except Exception as e:
+                logger.error(f"Slack test failed: {e}")
+                return {"status": "error", "type": "slack", "error": str(e)}
+
+        def test_webhook_notification(self):
+            logger.info("🌐 Testing HTTP Webhook notification...")
+            try:
+                webhook_payload = {
+                    "alert_name": "TestWebhookAlert",
+                    "status": "firing",
+                    "severity": "info",
+                    "summary": "Test webhook notification",
+                    "description": "This is a test webhook call from notification test server",
+                    "timestamp": datetime.now().isoformat(),
+                    "labels": {
+                        "alertname": "TestWebhookAlert",
+                        "app": "notification-test",
+                        "severity": "info"
+                    }
+                }
+                
+                # Test multiple webhook endpoints
+                endpoints = [
+                    'https://httpbin.org/post',
+                    'http://enhanced-webhook-service:8080/test'
+                ]
+                
+                results = []
+                for endpoint in endpoints:
+                    try:
+                        response = requests.post(
+                            endpoint, 
+                            json=webhook_payload,
+                            timeout=5
+                        )
+                        results.append({
+                            "endpoint": endpoint,
+                            "status_code": response.status_code,
+                            "success": True
+                        })
+                        logger.info(f"Webhook sent to {endpoint}: {response.status_code}")
+                    except Exception as e:
+                        results.append({
+                            "endpoint": endpoint,
+                            "error": str(e),
+                            "success": False
+                        })
+                
+                return {
+                    "status": "success",
+                    "type": "webhook",
+                    "message": f"Tested {len(endpoints)} webhook endpoints", 
+                    "results": results,
+                    "payload": webhook_payload,
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+            except Exception as e:
+                logger.error(f"Webhook test failed: {e}")
+                return {"status": "error", "type": "webhook", "error": str(e)}
+
+    if __name__ == "__main__":
+        server = HTTPServer(('0.0.0.0', 8080), NotificationTestHandler)
+        logger.info("🧪 Notification Test Server starting on port 8080...")
+        server.serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-test-server
+  namespace: monitoring
+  labels:
+    app: notification-test-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-test-server
+  template:
+    metadata:
+      labels:
+        app: notification-test-server
+    spec:
+      containers:
+      - name: test-server
+        image: python:3.9-slim
+        command: ["sh", "-c"]
+        args:
+          - |
+            pip install requests && python3 /app/test_server.py
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: test-server-script
+          mountPath: /app
+      volumes:
+      - name: test-server-script
+        configMap:
+          name: notification-test-server
+          defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-test-service
+  namespace: monitoring
+  labels:
+    app: notification-test-server
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30008
+  selector:
+    app: notification-test-server

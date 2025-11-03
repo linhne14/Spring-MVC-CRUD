@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  cpu-usage.yml: |
+    groups:
+    - name: pod-cpu-usage
+      rules:
+      - alert: PodHighCPUUsage
+        expr: (sum(rate(container_cpu_usage_seconds_total{container!="POD",container!=""}[1m])) by (pod, namespace) / sum(container_spec_cpu_quota{container!="POD",container!=""}/container_spec_cpu_period{container!="POD",container!=""}) by (pod, namespace)) * 100 > 80
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has high CPU usage"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been using more than 80% CPU for more than 1 minute. Current usage: {{ $value }}%"
+      
+      - alert: CPUStressAppAlert
+        expr: cpu_usage_percent > 80
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU Stress App has high CPU usage"
+          description: "CPU Stress App is reporting CPU usage of {{ $value }}% which is above the 80% threshold"
+      
+      - alert: PodHighMemoryUsage
+        expr: (sum(container_memory_working_set_bytes{container!="POD",container!=""}) by (pod, namespace) / sum(container_spec_memory_limit_bytes{container!="POD",container!=""}) by (pod, namespace)) * 100 > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has high memory usage"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been using more than 80% memory for more than 2 minutes. Current usage: {{ $value }}%"
+      
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash looping"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting frequently"
+    
+    - name: node-alerts
+      rules:
+      - alert: NodeHighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.instance }} has high CPU usage"
+          description: "Node {{ $labels.instance }} has been using more than 80% CPU for more than 2 minutes. Current usage: {{ $value }}%"
+      
+      - alert: NodeHighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.instance }} has high memory usage"
+          description: "Node {{ $labels.instance }} has been using more than 80% memory for more than 2 minutes. Current usage: {{ $value }}%"

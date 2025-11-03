@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cpu-stress-script
+  namespace: sso-dev
+data:
+  stress.py: |
+    #!/usr/bin/env python3
+    import multiprocessing
+    import time
+    
+    def cpu_stress():
+        """Function to create CPU load"""
+        while True:
+            # Perform CPU-intensive operation
+            for i in range(1000000):
+                pass
+    
+    if __name__ == "__main__":
+        print("Starting CPU stress test...")
+        
+        # Get number of CPU cores
+        num_cores = multiprocessing.cpu_count()
+        print(f"Using {num_cores} cores for stress testing")
+        
+        # Create processes for each core
+        processes = []
+        for i in range(num_cores):
+            p = multiprocessing.Process(target=cpu_stress)
+            processes.append(p)
+            p.start()
+        
+        # Run for 5 minutes
+        time.sleep(300)
+        
+        # Terminate all processes
+        for p in processes:
+            p.terminate()
+            p.join()
+        
+        print("CPU stress test completed")
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cpu-stress-test
+  namespace: sso-dev
+spec:
+  template:
+    spec:
+      containers:
+      - name: stress-test
+        image: python:3.9-slim
+        command: ["python3", "/scripts/stress.py"]
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "1000m"
+            memory: "256Mi"
+        volumeMounts:
+        - name: stress-script
+          mountPath: /scripts
+      volumes:
+      - name: stress-script
+        configMap:
+          name: cpu-stress-script
+          defaultMode: 0755
+      restartPolicy: Never
+  backoffLimit: 1

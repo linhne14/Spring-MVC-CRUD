@@ -1,0 +1,178 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Kubernetes Monitoring Dashboard",
+    "description": "Complete monitoring dashboard for Kubernetes cluster",
+    "tags": ["kubernetes", "monitoring", "prometheus"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "CPU Stress App Usage (%)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "cpu_usage_percent",
+            "refId": "A",
+            "legendFormat": "CPU Usage"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 80}
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Active Stress Threads",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "stress_threads",
+            "refId": "B",
+            "legendFormat": "Threads"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Stress Test Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "stress_active",
+            "refId": "C",
+            "legendFormat": "Active"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            },
+            "mappings": [
+              {"options": {"0": {"text": "INACTIVE"}}, "type": "value"},
+              {"options": {"1": {"text": "ACTIVE"}}, "type": "value"}
+            ]
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Pod Count by Namespace",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "count(kube_pod_info) by (namespace)",
+            "refId": "D",
+            "legendFormat": "{{namespace}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "CPU Usage Over Time",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "cpu_usage_percent",
+            "refId": "E",
+            "legendFormat": "CPU Stress App"
+          },
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\"}[5m]) * 100",
+            "refId": "F",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Memory Usage by Pod",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "container_memory_working_set_bytes{container!=\"POD\",container!=\"\"} / 1024 / 1024",
+            "refId": "G",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "decbytes"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Active Alerts",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "ALERTS{alertstate=\"firing\"}",
+            "refId": "H",
+            "format": "table"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      }
+    ],
+    "time": {
+      "from": "now-5m",
+      "to": "now"
+    },
+    "refresh": "5s",
+    "schemaVersion": 30
+  },
+  "overwrite": true
+}

@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webhook-server
+  namespace: monitoring
+data:
+  webhook.py: |
+    #!/usr/bin/env python3
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import json
+    import datetime
+    
+    class WebhookHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
+            try:
+                alert_data = json.loads(post_data.decode('utf-8'))
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                print(f"\n=== ALERT RECEIVED at {timestamp} ===")
+                print(f"Status: {alert_data.get('status', 'unknown')}")
+                
+                if 'alerts' in alert_data:
+                    for alert in alert_data['alerts']:
+                        print(f"Alert: {alert.get('labels', {}).get('alertname', 'Unknown')}")
+                        print(f"Summary: {alert.get('annotations', {}).get('summary', 'No summary')}")
+                        print(f"Description: {alert.get('annotations', {}).get('description', 'No description')}")
+                        print(f"Labels: {alert.get('labels', {})}")
+                        print("---")
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'Alert received successfully')
+                
+            except Exception as e:
+                print(f"Error processing alert: {e}")
+                self.send_response(400)
+                self.end_headers()
+        
+        def log_message(self, format, *args):
+            pass  # Suppress default logging
+    
+    if __name__ == "__main__":
+        server = HTTPServer(('0.0.0.0', 8080), WebhookHandler)
+        print("Webhook server listening on port 8080...")
+        server.serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-server
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-server
+  template:
+    metadata:
+      labels:
+        app: webhook-server
+    spec:
+      containers:
+      - name: webhook-server
+        image: python:3.9-slim
+        command: ["python3", "/scripts/webhook.py"]
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        volumeMounts:
+        - name: webhook-script
+          mountPath: /scripts
+      volumes:
+      - name: webhook-script
+        configMap:
+          name: webhook-server
+          defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-server
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: webhook-server

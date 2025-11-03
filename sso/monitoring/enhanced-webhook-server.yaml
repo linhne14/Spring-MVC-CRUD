@@ -1,0 +1,237 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: enhanced-webhook-server
+  namespace: monitoring
+data:
+  webhook_server.py: |
+    #!/usr/bin/env python3
+    import json
+    import logging
+    from datetime import datetime
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import urllib.parse
+    import base64
+
+    # Setup logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+
+    class WebhookHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/':
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
+                html = '''
+                <html><body>
+                <h1>🎯 AlertManager Webhook Server</h1>
+                <h2>📊 Recent Alerts</h2>
+                <p><a href="/status">Server Status</a></p>
+                <p><a href="/health">Health Check</a></p>
+                <p><strong>Endpoints:</strong></p>
+                <ul>
+                <li>POST /webhook - Main AlertManager webhook</li>
+                <li>POST /test - Test endpoint</li>
+                <li>GET /status - Server status</li>
+                <li>GET /health - Health check</li>
+                </ul>
+                </body></html>
+                '''
+                self.wfile.write(html.encode())
+                
+            elif self.path == '/status':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                status = {
+                    "status": "running",
+                    "timestamp": datetime.now().isoformat(),
+                    "server": "AlertManager Webhook Server",
+                    "version": "1.0",
+                    "endpoints": ["/webhook", "/test", "/status", "/health"]
+                }
+                self.wfile.write(json.dumps(status, indent=2).encode())
+                
+            elif self.path == '/health':
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'OK')
+
+        def do_POST(self):
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            
+            # Log request details
+            logger.info(f"📨 Received {self.command} request to {self.path}")
+            logger.info(f"📋 Headers: {dict(self.headers)}")
+            
+            try:
+                # Parse JSON payload
+                if post_data:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    logger.info(f"📦 Payload: {json.dumps(payload, indent=2)}")
+                else:
+                    payload = {}
+                    
+                if self.path == '/webhook':
+                    self.handle_alertmanager_webhook(payload)
+                elif self.path == '/test':
+                    self.handle_test_webhook(payload)
+                else:
+                    self.send_error(404, "Endpoint not found")
+                    return
+                    
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ JSON decode error: {e}")
+                self.send_error(400, f"Invalid JSON: {e}")
+                return
+            except Exception as e:
+                logger.error(f"❌ Error processing request: {e}")
+                self.send_error(500, f"Internal server error: {e}")
+                return
+
+        def handle_alertmanager_webhook(self, payload):
+            """Handle AlertManager webhook notifications"""
+            logger.info("🚨 Processing AlertManager webhook")
+            
+            # Extract alerts information
+            alerts = payload.get('alerts', [])
+            group_labels = payload.get('groupLabels', {})
+            common_labels = payload.get('commonLabels', {})
+            status = payload.get('status', 'unknown')
+            
+            logger.info(f"📊 Alert Status: {status}")
+            logger.info(f"🏷️  Group Labels: {group_labels}")
+            logger.info(f"🔗 Common Labels: {common_labels}")
+            logger.info(f"📈 Number of alerts: {len(alerts)}")
+            
+            # Process each alert
+            for i, alert in enumerate(alerts):
+                logger.info(f"🔔 Alert #{i+1}:")
+                logger.info(f"   Labels: {alert.get('labels', {})}")
+                logger.info(f"   Annotations: {alert.get('annotations', {})}")
+                logger.info(f"   Status: {alert.get('status', 'unknown')}")
+                logger.info(f"   Starts At: {alert.get('startsAt', 'unknown')}")
+                
+                # Extract key information
+                alert_name = alert.get('labels', {}).get('alertname', 'Unknown Alert')
+                severity = alert.get('labels', {}).get('severity', 'unknown')
+                summary = alert.get('annotations', {}).get('summary', 'No summary')
+                description = alert.get('annotations', {}).get('description', 'No description')
+                
+                # Log formatted alert info
+                logger.info(f"🎯 ALERT DETAILS:")
+                logger.info(f"   📛 Name: {alert_name}")
+                logger.info(f"   ⚡ Severity: {severity}")
+                logger.info(f"   📝 Summary: {summary}")
+                logger.info(f"   📄 Description: {description}")
+                
+            # Simulate processing different notification types
+            if status == 'firing':
+                logger.info("🔥 FIRING ALERT - Would send notifications:")
+                logger.info("   📧 Email notification sent")
+                logger.info("   💬 Slack message sent")
+                logger.info("   🌐 HTTP endpoint called")
+            elif status == 'resolved':
+                logger.info("✅ RESOLVED ALERT - Would send resolution notifications")
+                
+            # Send success response
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            
+            response = {
+                "status": "success",
+                "message": "Alert webhook processed successfully",
+                "alerts_count": len(alerts),
+                "alert_status": status,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            self.wfile.write(json.dumps(response, indent=2).encode())
+
+        def handle_test_webhook(self, payload):
+            """Handle test webhook calls"""
+            logger.info("🧪 Processing test webhook")
+            logger.info(f"Test payload: {payload}")
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')  
+            self.end_headers()
+            
+            response = {
+                "status": "success",
+                "message": "Test webhook received",
+                "payload": payload,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            self.wfile.write(json.dumps(response, indent=2).encode())
+
+    if __name__ == "__main__":
+        server = HTTPServer(('0.0.0.0', 8080), WebhookHandler)
+        logger.info("🚀 Enhanced AlertManager Webhook Server starting on port 8080...")
+        logger.info("🔗 Available endpoints:")
+        logger.info("   GET  / - Main page")
+        logger.info("   POST /webhook - AlertManager webhook")
+        logger.info("   POST /test - Test endpoint") 
+        logger.info("   GET  /status - Server status")
+        logger.info("   GET  /health - Health check")
+        server.serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enhanced-webhook-server
+  namespace: monitoring
+  labels:
+    app: enhanced-webhook-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: enhanced-webhook-server
+  template:
+    metadata:
+      labels:
+        app: enhanced-webhook-server
+    spec:
+      containers:
+      - name: webhook-server
+        image: python:3.9-slim
+        command: ["python3", "/app/webhook_server.py"]
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        volumeMounts:
+        - name: webhook-server-script
+          mountPath: /app
+      volumes:
+      - name: webhook-server-script
+        configMap:
+          name: enhanced-webhook-server
+          defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enhanced-webhook-service
+  namespace: monitoring
+  labels:
+    app: enhanced-webhook-server
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30007
+  selector:
+    app: enhanced-webhook-server

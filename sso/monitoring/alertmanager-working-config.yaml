@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-working-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'localhost:587'
+      smtp_from: 'alertmanager@localhost'
+
+    route:
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 30s
+      repeat_interval: 5m
+      receiver: 'webhook-notifications'
+
+    receivers:
+    - name: 'webhook-notifications'
+      webhook_configs:
+      - url: 'http://enhanced-webhook-service:8080/webhook'
+        send_resolved: true
+        
+    # Demo configuration for other notification types
+    - name: 'email-notifications'
+      email_configs:
+      - to: 'admin@example.com'
+        
+    - name: 'slack-notifications' 
+      slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts'

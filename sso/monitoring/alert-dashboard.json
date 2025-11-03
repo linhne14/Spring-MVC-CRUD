@@ -1,0 +1,105 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Alert Monitoring Dashboard",
+    "description": "Dashboard for monitoring alerts and CPU stress testing",
+    "tags": ["alerts", "cpu", "stress-test"],
+    "timezone": "browser", 
+    "panels": [
+      {
+        "id": 1,
+        "title": "🔥 CPU Stress Level",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "cpu_usage_percent",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 50},
+                {"color": "orange", "value": 80},
+                {"color": "red", "value": 90}
+              ]
+            },
+            "min": 0,
+            "max": 100,
+            "unit": "percent"
+          }
+        },
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 2,
+        "title": "⚡ Thread Activity",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "stress_threads",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "continuous-GrYlRd"
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "📊 Real-time CPU Metrics",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "cpu_usage_percent",
+            "refId": "C",
+            "legendFormat": "CPU Usage %"
+          },
+          {
+            "expr": "stress_threads * 4",
+            "refId": "D", 
+            "legendFormat": "Thread Count x4"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 9},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        },
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          },
+          "legend": {
+            "displayMode": "table",
+            "values": ["current", "max"]
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-2m",
+      "to": "now"
+    },
+    "refresh": "2s"
+  },
+  "overwrite": true
+}

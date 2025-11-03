@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpu-intensive-app
+  namespace: sso-dev
+  labels:
+    app: cpu-intensive-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cpu-intensive-app
+  template:
+    metadata:
+      labels:
+        app: cpu-intensive-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: cpu-stress-app
+        image: python:3.9-slim
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            mkdir -p /app
+            cat > /app/stress_server.py << 'EOF'
+            #!/usr/bin/env python3
+            import threading
+            import time
+            import multiprocessing
+            from http.server import HTTPServer, BaseHTTPRequestHandler
+            import json
+            
+            stress_active = False
+            stress_threads = []
+            
+            def cpu_stress_worker():
+                while stress_active:
+                    # Intensive CPU calculation
+                    for i in range(1000000):
+                        _ = i * i * i
+            
+            class StressHandler(BaseHTTPRequestHandler):
+                def do_GET(self):
+                    if self.path == '/':
+                        self.send_response(200)
+                        self.send_header('Content-type', 'text/html')
+                        self.end_headers()
+                        self.wfile.write(b'''
+                        <html><body>
+                        <h1>CPU Stress Test Server</h1>
+                        <p><a href="/start">Start CPU Stress</a></p>
+                        <p><a href="/stop">Stop CPU Stress</a></p>
+                        <p><a href="/status">Status</a></p>
+                        </body></html>
+                        ''')
+                    elif self.path == '/start':
+                        self.start_stress()
+                    elif self.path == '/stop':
+                        self.stop_stress()
+                    elif self.path == '/status':
+                        self.show_status()
+                    elif self.path == '/metrics':
+                        self.show_metrics()
+                
+                def start_stress(self):
+                    global stress_active, stress_threads
+                    if not stress_active:
+                        stress_active = True
+                        cpu_count = multiprocessing.cpu_count()
+                        for i in range(cpu_count * 2):  # 2x CPU cores for heavy load
+                            t = threading.Thread(target=cpu_stress_worker)
+                            t.daemon = True
+                            t.start()
+                            stress_threads.append(t)
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    self.wfile.write(b'<html><body><h2>CPU Stress Started!</h2><p><a href="/">Back</a></p></body></html>')
+                
+                def stop_stress(self):
+                    global stress_active, stress_threads
+                    stress_active = False
+                    stress_threads = []
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    self.wfile.write(b'<html><body><h2>CPU Stress Stopped!</h2><p><a href="/">Back</a></p></body></html>')
+                
+                def show_status(self):
+                    status = "ACTIVE" if stress_active else "INACTIVE"
+                    thread_count = len(stress_threads)
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    response = {
+                        "status": status,
+                        "active_threads": thread_count,
+                        "cpu_cores": multiprocessing.cpu_count()
+                    }
+                    self.wfile.write(json.dumps(response).encode())
+                
+                def show_metrics(self):
+                    # Simple Prometheus metrics format
+                    cpu_usage = 85.0 if stress_active else 5.0
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/plain')
+                    self.end_headers()
+                    metrics = f"""# HELP cpu_usage_percent Current CPU usage percentage
+# TYPE cpu_usage_percent gauge
+cpu_usage_percent {cpu_usage}
+
+# HELP stress_active CPU stress test active status
+# TYPE stress_active gauge
+stress_active {int(stress_active)}
+
+# HELP stress_threads Number of active stress threads
+# TYPE stress_threads gauge
+stress_threads {len(stress_threads)}
+"""
+                    self.wfile.write(metrics.encode())
+            
+            if __name__ == "__main__":
+                server = HTTPServer(('0.0.0.0', 8080), StressHandler)
+                print("CPU Stress Server running on port 8080...")
+                server.serve_forever()
+            EOF
+            
+            python3 /app/stress_server.py
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "1000m"  # Limit để có thể đạt 100% CPU
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cpu-intensive-service
+  namespace: sso-dev
+  labels:
+    app: cpu-intensive-app
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30003
+  selector:
+    app: cpu-intensive-app
