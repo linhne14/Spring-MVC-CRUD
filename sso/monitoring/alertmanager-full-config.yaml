@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-full-notifications
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      # SMTP configuration - sử dụng Gmail SMTP
+      smtp_smarthost: 'smtp.gmail.com:587'
+      smtp_from: 'k8s-monitoring@gmail.com'
+      smtp_auth_username: 'k8s-monitoring@gmail.com'
+      smtp_auth_password: 'demo-password'
+      smtp_require_tls: true
+
+    # Routing configuration
+    route:
+      group_by: ['alertname']
+      group_wait: 5s
+      group_interval: 15s
+      repeat_interval: 2m
+      receiver: 'all-notifications'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-all-channels'
+      - match:
+          severity: warning
+        receiver: 'warning-all-channels'
+
+    receivers:
+    # Default receiver - all channels
+    - name: 'all-notifications'
+      email_configs:
+      - to: 'admin@company.com'
+        subject: '[K8S] Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>🔔 Kubernetes Alert</h2>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Status:</strong> {{ .Status }}</p>
+          <p><strong>Time:</strong> {{ .CommonLabels.timestamp }}</p>
+          {{- range .Alerts }}
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Pod:</strong> {{ .Labels.kubernetes_pod_name }}</p>
+          <p><strong>Namespace:</strong> {{ .Labels.kubernetes_namespace }}</p>
+          {{- end }}
+      
+      webhook_configs:
+      - url: 'http://enhanced-webhook-service:8080/webhook'
+        send_resolved: true
+      - url: 'https://httpbin.org/post'
+        send_resolved: true
+      - url: 'http://enhanced-webhook-service:8080/test'
+        send_resolved: true
+
+    # Critical alerts - enhanced notifications
+    - name: 'critical-all-channels'
+      email_configs:
+      - to: 'admin@company.com,devops@company.com'
+        subject: '🚨 CRITICAL K8S Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <div style="color: red; font-weight: bold;">
+          <h1>🚨 CRITICAL ALERT 🚨</h1>
+          <h2>{{ .GroupLabels.alertname }}</h2>
+          <p><strong>Status:</strong> {{ .Status }}</p>
+          {{- range .Alerts }}
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Pod:</strong> {{ .Labels.kubernetes_pod_name }}</p>
+          <p><strong>Namespace:</strong> {{ .Labels.kubernetes_namespace }}</p>
+          <p><strong>Started At:</strong> {{ .StartsAt }}</p>
+          {{- end }}
+          </div>
+        
+      webhook_configs:
+      - url: 'http://enhanced-webhook-service:8080/webhook'
+        send_resolved: true
+      - url: 'https://httpbin.org/post'
+        send_resolved: true
+
+    # Warning alerts  
+    - name: 'warning-all-channels'
+      email_configs:
+      - to: 'devops@company.com'
+        subject: '⚠️ Warning K8S Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>⚠️ Warning Alert</h2>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Status:</strong> {{ .Status }}</p>
+          {{- range .Alerts }}
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          {{- end }}
+
+
+      webhook_configs:
+      - url: 'http://enhanced-webhook-service:8080/webhook'
+        send_resolved: true
+      - url: 'https://httpbin.org/post'
+        send_resolved: true
