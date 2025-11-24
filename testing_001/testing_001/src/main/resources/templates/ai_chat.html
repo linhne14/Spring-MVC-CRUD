@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="https://www.thymeleaf.org/">
+<head>
+    <meta charset="ISO-8859-1">
+    <title>AI Assistant</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+    <style>
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .ai-message {
+            background-color: #e9ecef;
+            color: #333;
+            margin-right: auto;
+        }
+
+        .input-group {
+            margin-top: 15px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .ai-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f0f8ff;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+
+        .quick-suggestion {
+            margin-top: 10px;
+        }
+
+        .quick-suggestion button {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="container my-4">
+    <h1>🤖 AI Assistant</h1>
+    <hr>
+
+    <div class="ai-section">
+        <h3>💬 Chatbot AI - Hỏi đáp về khóa học</h3>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="message ai-message">
+                <strong>AI:</strong> Xin chào! Tôi có thể giúp bạn gì? Bạn có thể hỏi tôi về các khóa học hoặc bất cứ điều gì khác.
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <span class="spinner"></span> Đang xử lý...
+        </div>
+
+        <div class="input-group">
+            <input type="text" class="form-control" id="questionInput" placeholder="Nhập câu hỏi của bạn...">
+            <div class="input-group-append">
+                <button class="btn btn-primary" onclick="sendMessage()">Gửi</button>
+            </div>
+        </div>
+
+        <div class="quick-suggestion">
+            <p><small class="text-muted">Hoặc hỏi:</small></p>
+            <button class="btn btn-outline-primary btn-sm" onclick="askQuestion('Hãy gợi ý một khóa học tốt cho người mới bắt đầu')">Khóa học cho người mới</button>
+            <button class="btn btn-outline-primary btn-sm" onclick="askQuestion('Tôi nên học gì để trở thành lập trình viên?')">Học lập trình</button>
+            <button class="btn btn-outline-primary btn-sm" onclick="askQuestion('Hãy tóm tắt những kỹ năng cần thiết trong thời đại số')">Kỹ năng số</button>
+        </div>
+    </div>
+
+    <!-- Section để xem gợi ý từ các khóa học hiện tại -->
+    <div class="ai-section" id="courseAISection" style="margin-top: 20px; display: none;">
+        <h3>📚 Thông tin AI về khóa học</h3>
+        <div id="courseAIInfo"></div>
+    </div>
+
+    <hr>
+    <a href="/" class="btn btn-secondary">← Quay lại danh sách khóa học</a>
+</div>
+
+<script>
+    const chatContainer = document.getElementById('chatContainer');
+    const questionInput = document.getElementById('questionInput');
+    const loading = document.getElementById('loading');
+
+    // Gửi tin nhắn khi nhấn Enter
+    questionInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    function sendMessage() {
+        const question = questionInput.value.trim();
+        if (question === '') {
+            alert('Vui lòng nhập câu hỏi');
+            return;
+        }
+
+        // Hiển thị tin nhắn của người dùng
+        addMessage('user', question);
+        questionInput.value = '';
+
+        // Hiển thị loading
+        loading.style.display = 'block';
+
+        // Gửi request đến API
+        fetch('/api/ai/ask', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                question: question,
+                conversationId: ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            loading.style.display = 'none';
+            if (data.error) {
+                addMessage('ai', '❌ Lỗi: ' + data.error);
+            } else {
+                addMessage('ai', data.answer);
+            }
+        })
+        .catch(error => {
+            loading.style.display = 'none';
+            addMessage('ai', '❌ Không thể kết nối đến AI. Vui lòng kiểm tra API key Dify của bạn.');
+            console.error('Error:', error);
+        });
+    }
+
+    function askQuestion(question) {
+        questionInput.value = question;
+        sendMessage();
+    }
+
+    function addMessage(sender, text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ' + (sender === 'user' ? 'user-message' : 'ai-message');
+        messageDiv.innerHTML = '<strong>' + (sender === 'user' ? 'Bạn' : 'AI') + ':</strong> ' + text;
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight; // Cuộn xuống cuối cùng
+    }
+</script>
+</body>
+</html>

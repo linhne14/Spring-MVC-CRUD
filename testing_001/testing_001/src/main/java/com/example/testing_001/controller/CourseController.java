@@ -45,6 +45,11 @@ public class CourseController {
         return "redirect:/";
     }
 
+    @GetMapping("/ai")
+    public String viewAIChat() {
+        return "ai_chat";
+    }
+
     @GetMapping("/page/{pageNo}")
     public String findPaginated(@PathVariable int pageNo,
                                 @RequestParam("sortField") String sortField,
